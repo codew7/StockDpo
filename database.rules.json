@@ -9,7 +9,7 @@
         ".indexOn": ["Codigo", "FechaHora"],
         "$mov": {
           ".write": "auth != null && !data.exists()",
-          ".validate": "newData.hasChildren(['Codigo','Nombre','Cantidad','Tipo','DestinoShowroom','FechaHora'])",
+          ".validate": "newData.hasChildren(['Codigo','Nombre','Cantidad','Tipo','FechaHora']) && (newData.child('Tipo').val() !== 'SALIDA' || newData.hasChild('DestinoShowroom'))",
           "Codigo":          { ".validate": "newData.isString() && newData.val().length > 0" },
           "Nombre":          { ".validate": "newData.isString()" },
           "Cantidad":        { ".validate": "newData.isNumber() && newData.val() > 0" },

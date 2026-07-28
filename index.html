@@ -451,12 +451,12 @@ input[type=number]{-moz-appearance:textfield}
       <div class="stat in">
         <div class="lbl">Entradas hoy</div>
         <div class="num" id="statIn">—</div>
-        <div class="sub" id="statInSub">unidades</div>
+        <div class="sub" id="statInSub">movimientos</div>
       </div>
       <div class="stat out">
         <div class="lbl">Salidas hoy</div>
         <div class="num" id="statOut">—</div>
-        <div class="sub" id="statOutSub">unidades</div>
+        <div class="sub" id="statOutSub">movimientos</div>
       </div>
     </div>
 
@@ -1054,6 +1054,9 @@ function pintarTipo(){
   tag.textContent = entrada ? 'Entrada' : 'Salida';
   save.className = 'btn btn-save ' + (entrada ? 'in' : 'out');
   save.textContent = entrada ? 'Registrar entrada' : 'Registrar salida';
+  // El destino solo aplica a las salidas: en una entrada la mercadería llega,
+  // no se despacha a ningún lado.
+  $('destinoRow').style.display = entrada ? 'none' : '';
   evaluarCantidad();
 }
 
@@ -1107,9 +1110,10 @@ function pintarStockArticulo(){
   evaluarCantidad();
 }
 
-// ---- Destino del movimiento ----
-// Marcado = la mercadería sale hacia (o entra desde) el salón de ventas.
+// ---- Destino del movimiento (solo salidas) ----
+// Marcado = la mercadería sale hacia el salón de ventas.
 // Destildado = cualquier otro destino: depósito, devolución, ajuste, etc.
+// En una ENTRADA el concepto no aplica: el control se oculta y el campo no se guarda.
 function destinoShowroom(){ return $('destinoShowroom').checked; }
 
 function setDestinoShowroom(val){
@@ -1408,7 +1412,8 @@ async function registrarMovimiento(){
   const delta = tipo === 'ENTRADA' ? cant : -cant;
   const codigo = art.codigo;
   const nombre = art.nombre || '';
-  const showroom = destinoShowroom();
+  // Solo las salidas tienen destino; en las entradas el campo ni siquiera se escribe.
+  const showroom = tipo === 'SALIDA' ? destinoShowroom() : null;
 
   btn.disabled = true;
   procesoCriticoEnEjecucion = true;
@@ -1442,12 +1447,12 @@ async function registrarMovimiento(){
       Nombre: nombre,
       Cantidad: cant,
       Tipo: tipo,
-      // true = salón de ventas · false = cualquier otro destino
-      DestinoShowroom: showroom,
       FechaHora: firebase.database.ServerValue.TIMESTAMP,
       FechaHoraTxt: fmtFechaGMT3(ahora),
       Usuario: (auth.currentUser && auth.currentUser.email) || ''
     };
+    // Solo en salidas: true = salón de ventas · false = cualquier otro destino.
+    if (showroom !== null) registro.DestinoShowroom = showroom;
 
     await conTimeout(
       db.ref(P.movimientos + '/' + movKey).set(registro),
@@ -1495,8 +1500,10 @@ function mostrarSuccess(art, cant, tipo, stockFinal, showroom){
   scr.className = 'success-screen active ' + (entrada ? 'in' : 'out');
   $('successStamp').className = 'stamp ' + (entrada ? 'in' : 'out');
   $('successTitle').textContent = entrada ? '¡Entrada registrada!' : '¡Salida registrada!';
-  const destino = showroom ? 'Showroom' : 'Otro destino';
-  $('successNm').textContent = `${cant} ${unidades(cant)} · ${art.nombre || '(sin nombre)'} · ${destino}`;
+  // El destino solo se informa en las salidas.
+  const destino = showroom === null || showroom === undefined
+    ? '' : ' · ' + (showroom ? 'Showroom' : 'Otro destino');
+  $('successNm').textContent = `${cant} ${unidades(cant)} · ${art.nombre || '(sin nombre)'}${destino}`;
   $('successStock').innerHTML = `Stock de #${escapeHtml(art.codigo)}: <b>${stockFinal} ${unidades(stockFinal)}</b>`;
 }
 
@@ -1524,18 +1531,19 @@ function suscribirMovimientos(){
   }, err => console.error('No se pudo leer el historial:', err));
 }
 
+// Los indicadores del home cuentan MOVIMIENTOS del día, no unidades.
 function renderStats(){
   const hoy = FMT_DIA.format(new Date());
-  let entradas = 0, salidas = 0, nIn = 0, nOut = 0;
+  let nIn = 0, nOut = 0;
   movimientos.forEach(m => {
     if (diaGMT3(m.FechaHora) !== hoy) return;
-    const c = Number(m.Cantidad) || 0;
-    if (m.Tipo === 'SALIDA'){ salidas += c; nOut++; } else { entradas += c; nIn++; }
+    if (m.Tipo === 'SALIDA') nOut++; else nIn++;
   });
-  $('statIn').textContent = entradas;
-  $('statOut').textContent = salidas;
-  $('statInSub').textContent = `${unidades(entradas)} · ${nIn} mov.`;
-  $('statOutSub').textContent = `${unidades(salidas)} · ${nOut} mov.`;
+  const etiqueta = n => n === 1 ? 'movimiento' : 'movimientos';
+  $('statIn').textContent = nIn;
+  $('statOut').textContent = nOut;
+  $('statInSub').textContent = etiqueta(nIn);
+  $('statOutSub').textContent = etiqueta(nOut);
 }
 
 function renderHistorial(){
