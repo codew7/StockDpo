@@ -223,6 +223,7 @@ body{
 }
 .scan-hero:hover{border-color:var(--primary);box-shadow:var(--sh)}
 .scan-hero:active{transform:scale(.99)}
+.scan-hero + .scan-hero{margin-top:12px}
 .scan-hero .ico{
   width:54px;height:54px;border-radius:14px;flex-shrink:0;
   background:linear-gradient(135deg,var(--primary),#3d424c);color:#fff;box-shadow:var(--sh-primary);
@@ -231,11 +232,6 @@ body{
 .scan-hero b{font-weight:700;font-size:1.02rem;display:block;letter-spacing:-.01em}
 .scan-hero small{color:var(--muted);font-size:.8rem}
 .scan-hero .chev{margin-left:auto;color:var(--faint);display:flex}
-.or{display:flex;align-items:center;gap:12px;margin:16px 0;font-size:.7rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
-.or::before,.or::after{content:'';flex:1;height:1px;background:var(--border-2)}
-.row{display:flex;gap:9px}
-.row .inp{flex:1;min-width:0}
-.btn-dark{background:var(--text);color:#fff;border-radius:var(--r-sm);padding:0 20px;font-weight:700;font-size:.9rem;white-space:nowrap}
 .btn-ghost{
   width:100%;margin-top:12px;background:var(--card);border:1px solid var(--border-2);
   border-radius:var(--r-sm);padding:13px;color:var(--text-2);font-weight:600;font-size:.88rem;
@@ -280,6 +276,20 @@ input[type=number]{-moz-appearance:textfield}
 .warn{display:none;align-items:flex-start;gap:10px;background:var(--amber-soft);border:1px solid #ffe2a6;color:#8a6100;border-radius:var(--r-sm);padding:12px 14px;font-size:.82rem;font-weight:600;margin-top:14px;line-height:1.45}
 .warn.show{display:flex;animation:rise .3s ease}
 .warn svg{flex-shrink:0;margin-top:1px}
+
+/* destino del movimiento (showroom / otro) */
+.destino{display:flex;align-items:center;gap:13px;margin-top:16px;padding:13px 15px;border:1px solid var(--border-2);border-radius:var(--r-sm);background:var(--card-2);cursor:pointer;transition:background .18s,border-color .18s}
+.destino:has(input:checked){background:var(--lime-soft);border-color:#d8e9c2}
+.destino input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.dsw{width:44px;height:25px;border-radius:13px;background:var(--border-2);position:relative;transition:background .18s;flex-shrink:0}
+.dsw::after{content:'';position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .18s}
+.destino input:checked + .dsw{background:var(--lime)}
+.destino input:checked + .dsw::after{transform:translateX(19px)}
+.destino input:focus-visible + .dsw{box-shadow:0 0 0 4px var(--lime-soft)}
+.destino-tx{min-width:0}
+.destino-tx b{display:block;font-weight:700;font-size:.9rem;letter-spacing:-.01em}
+.destino-tx small{display:block;color:var(--muted);font-size:.76rem;margin-top:2px}
+.destino:has(input:checked) .destino-tx b{color:var(--lime-600)}
 
 .btn-save{width:100%;margin-top:18px;padding:16px;border-radius:var(--r-sm);font-weight:800;font-size:1rem;color:#fff;letter-spacing:.01em}
 .btn-save.in{background:linear-gradient(135deg,var(--lime-600),var(--lime));box-shadow:0 10px 26px -8px rgba(124,179,66,.5)}
@@ -462,7 +472,7 @@ input[type=number]{-moz-appearance:textfield}
         <span class="menu-ico out">
           <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
         </span>
-        <span class="menu-tx"><b>Salida de stock</b><span>Venta, consumo o retiro de mercadería.</span></span>
+        <span class="menu-tx"><b>Salida de stock</b><span>Retiro de mercadería del depósito.</span></span>
         <span class="chev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
       </button>
     </div>
@@ -503,14 +513,13 @@ input[type=number]{-moz-appearance:textfield}
           <span class="chev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         </button>
 
-        <div class="or">o ingresá manual</div>
-
-        <div class="row">
-          <input type="text" class="inp mono" id="codeInput" placeholder="Código o cód. de barras…" inputmode="numeric" autocomplete="off">
-          <button class="btn btn-dark" id="codeBtn">Buscar</button>
-        </div>
-
-        <button class="btn btn-ghost" id="searchNameBtn">Buscar por nombre</button>
+        <button class="scan-hero" id="searchNameBtn">
+          <span class="ico">
+            <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16" y2="16"/></svg>
+          </span>
+          <span><b>Buscar por nombre</b><small>Elegí el artículo de la lista</small></span>
+          <span class="chev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
       </div>
     </div>
 
@@ -553,6 +562,15 @@ input[type=number]{-moz-appearance:textfield}
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <span id="qtyWarnTxt"></span>
         </div>
+
+        <label class="destino" id="destinoRow">
+          <input type="checkbox" id="destinoShowroom" checked>
+          <span class="dsw"></span>
+          <span class="destino-tx">
+            <b>Destino Showroom</b>
+            <small id="destinoHint">Salón de ventas</small>
+          </span>
+        </label>
 
         <button class="btn btn-save in" id="saveMov">Registrar entrada</button>
         <button class="btn-clear" id="clearArt">Elegir otro artículo</button>
@@ -646,6 +664,12 @@ const DB_PREFIX = 'inventario';
 // ---- Catálogo de artículos (Google Sheets, solo lectura desde el cliente) ----
 // Índices de columna dentro del rango 'Lista!A2:Z' (0 = columna A). Mismo mapeo
 // que usa pedidosv2.html en cargarSheets().
+//
+// La hoja aporta SOLO la identidad del artículo (código, nombre, foto, códigos de
+// barras, precios). El stock es independiente: vive únicamente en Firebase y se
+// construye con los movimientos registrados en esta app. La columna K de la hoja
+// se ignora deliberadamente — son dos contadores distintos y mezclarlos daría
+// números que no se corresponden con ningún movimiento registrado acá.
 const CATALOGO = {
   SHEET_ID: (typeof GOOGLE_SHEETS_CONFIG !== 'undefined' ? GOOGLE_SHEETS_CONFIG.SPREADSHEET_ID : ''),
   API_KEY:  (typeof GOOGLE_SHEETS_CONFIG !== 'undefined' ? GOOGLE_SHEETS_CONFIG.API_KEY : ''),
@@ -656,9 +680,7 @@ const CATALOGO = {
     NOMBRE:  3,    // col. D
     VALOR_U: 6,    // col. G — precio unitario
     VALOR_C: 7,    // col. H — precio por bulto
-    STOCK:   10,   // col. K — baseline del contador de Firebase
-    BARCODE: 11,   // col. L — CSV de códigos de barras
-    ULT_ENT: 12    // col. M — última entrada (informativo)
+    BARCODE: 11    // col. L — CSV de códigos de barras
   }
 };
 
@@ -695,8 +717,7 @@ try {
 
 const P = {
   movimientos: DB_PREFIX + '/movimientos',
-  stock:       DB_PREFIX + '/stock',
-  stockMeta:   DB_PREFIX + '/stockMeta'
+  stock:       DB_PREFIX + '/stock'
 };
 
 // ════════════════════════════════════════════════════════════
@@ -805,7 +826,7 @@ const state = {
   ultimoStock: null  // stock resultante del último movimiento guardado
 };
 
-let catalogo = [];        // [{ codigo, nombre, barcodes:[], foto, categoria, stockSheet }]
+let catalogo = [];        // [{ codigo, nombre, barcodes:[], foto, fotoAlt, valorU, valorC }]
 let porCodigo = {};       // codigo -> artículo
 let porBarcode = {};      // barcode -> [artículos]
 let stockMap = {};        // codigo -> stock actual (Firebase, en vivo)
@@ -818,7 +839,7 @@ let movimientos = [];     // últimos HIST_LIMIT, más nuevo primero
 const CATALOGO_URL = () =>
   `https://sheets.googleapis.com/v4/spreadsheets/${CATALOGO.SHEET_ID}/values/${encodeURIComponent(CATALOGO.RANGO)}?key=${CATALOGO.API_KEY}`;
 
-const CACHE_KEY = 'inv.catalogo.v2';
+const CACHE_KEY = 'inv.catalogo.v3';
 const CACHE_TTL = 10 * 60 * 1000;   // 10 minutos
 
 function celda(row, idx){
@@ -872,17 +893,14 @@ async function fetchCatalogoSheets(){
     // La columna de imagen trae varios links separados por coma; es posicional:
     // el 1º es la foto principal y el 4º la alternativa (igual que pedidosv2.html).
     const imgs = String(row[C.IMAGEN] || '').split(',').map(u => u.trim());
-    const stockRaw = celda(row, C.STOCK);
     return {
       codigo,
-      nombre:     celda(row, C.NOMBRE),
-      barcodes:   splitCsv(celda(row, C.BARCODE)),
-      foto:       imgs[0] || '',
-      fotoAlt:    imgs[3] || '',
-      valorU:     precioSheet(row[C.VALOR_U]),
-      valorC:     precioSheet(row[C.VALOR_C]),
-      stockSheet: stockRaw === '' ? null : (parseInt(stockRaw, 10) || 0),
-      ultEntrada: celda(row, C.ULT_ENT)
+      nombre:   celda(row, C.NOMBRE),
+      barcodes: splitCsv(celda(row, C.BARCODE)),
+      foto:     imgs[0] || '',
+      fotoAlt:  imgs[3] || '',
+      valorU:   precioSheet(row[C.VALOR_U]),
+      valorC:   precioSheet(row[C.VALOR_C])
     };
   }).filter(Boolean);
 }
@@ -975,15 +993,14 @@ function suscribirStock(){
   });
 }
 
-// Stock mostrado: el contador de Firebase manda; si el artículo nunca tuvo un
-// movimiento en esta app, se muestra el valor histórico de Sheets como baseline.
+// Stock independiente: sale exclusivamente del contador de Firebase, que es la
+// suma de los movimientos registrados en esta app. Un artículo sin movimientos
+// vale 0 — no se hereda ningún valor de la planilla.
 function stockDe(codigo){
   if (Object.prototype.hasOwnProperty.call(stockMap, codigo)){
-    return { valor: Number(stockMap[codigo]) || 0, fuente: 'firebase' };
+    return { valor: Number(stockMap[codigo]) || 0, registrado: true };
   }
-  const art = porCodigo[codigo];
-  if (art && art.stockSheet != null) return { valor: art.stockSheet, fuente: 'sheets' };
-  return { valor: 0, fuente: 'vacio' };
+  return { valor: 0, registrado: false };
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1020,14 +1037,12 @@ $('goStock').addEventListener('click', () => { showView('stockv'); renderStock()
 // ════════════════════════════════════════════════════════════
 function esEntrada(){ return state.tipo === 'ENTRADA'; }
 
-function abrirMovimiento(tipo, opts){
-  opts = opts || {};
+// La cámara nunca se abre sola: se enciende solo cuando se toca "Escanear código".
+function abrirMovimiento(tipo){
   state.tipo = tipo;
   limpiarArticulo();
   pintarTipo();
   showView('mov');
-  // Mínimos toques: el escáner se abre solo. Cerrarlo deja las opciones manuales.
-  if (opts.sinEscaner !== true) startScanner();
 }
 
 function pintarTipo(){
@@ -1052,11 +1067,11 @@ function limpiarArticulo(){
   state.art = null;
   $('artCard').classList.remove('show');
   $('scanCard').style.display = '';
-  $('codeInput').value = '';
   $('qtyInput').value = '1';
   $('qtyWarn').classList.remove('show');
+  setDestinoShowroom(true);   // por defecto, el movimiento va al salón de ventas
 }
-$('clearArt').addEventListener('click', () => { limpiarArticulo(); startScanner(); });
+$('clearArt').addEventListener('click', limpiarArticulo);
 
 function seleccionarArticulo(art){
   state.art = art;
@@ -1085,14 +1100,27 @@ function pintarStockArticulo(){
   if (!state.art) return;
   const el = $('artStock'), src = $('artStockSrc');
   if (!stockCargado){ el.className = 'v loading'; el.textContent = '…'; src.textContent = ''; return; }
-  const { valor, fuente } = stockDe(state.art.codigo);
+  const { valor, registrado } = stockDe(state.art.codigo);
   el.className = 'v ' + (valor > 0 ? 'pos' : (valor < 0 ? 'neg' : ''));
   el.textContent = valor + ' ' + unidades(valor);
-  src.textContent = fuente === 'firebase'
-    ? 'Contador en vivo'
-    : (fuente === 'sheets' ? 'Valor histórico de la planilla (aún sin movimientos en esta app)' : 'Sin movimientos registrados');
+  src.textContent = registrado ? 'Contador en vivo' : 'Sin movimientos registrados todavía';
   evaluarCantidad();
 }
+
+// ---- Destino del movimiento ----
+// Marcado = la mercadería sale hacia (o entra desde) el salón de ventas.
+// Destildado = cualquier otro destino: depósito, devolución, ajuste, etc.
+function destinoShowroom(){ return $('destinoShowroom').checked; }
+
+function setDestinoShowroom(val){
+  $('destinoShowroom').checked = !!val;
+  pintarDestino();
+}
+
+function pintarDestino(){
+  $('destinoHint').textContent = destinoShowroom() ? 'Salón de ventas' : 'Otro destino (depósito, ajuste, devolución…)';
+}
+$('destinoShowroom').addEventListener('change', pintarDestino);
 
 // ---- Cantidad ----
 function cantidadActual(){
@@ -1161,8 +1189,6 @@ function resolverCodigo(code){
   abrirSheetBusqueda(c);
 }
 
-$('codeBtn').addEventListener('click', () => resolverCodigo($('codeInput').value));
-$('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') resolverCodigo($('codeInput').value); });
 $('searchNameBtn').addEventListener('click', () => abrirSheetBusqueda(''));
 
 // ════════════════════════════════════════════════════════════
@@ -1345,10 +1371,18 @@ function onScan(decodedText, decodedResult){
 
 function closeScanner(){
   $('scanner').classList.remove('active');
-  if (html5Qr){
-    return html5Qr.stop().then(() => { html5Qr.clear(); html5Qr = null; }).catch(() => { html5Qr = null; });
+  if (!html5Qr) return Promise.resolve();
+  // stop() lanza de forma SÍNCRONA cuando el escáner todavía no arrancó (cerrar
+  // apenas se abre, o denegar el permiso de cámara): sin este try no lo atrapa
+  // ningún .catch() y la instancia queda zombi con el stream abierto.
+  try {
+    return html5Qr.stop()
+      .then(() => { try { html5Qr.clear(); } catch(_){} html5Qr = null; })
+      .catch(() => { html5Qr = null; });
+  } catch(_){
+    html5Qr = null;
+    return Promise.resolve();
   }
-  return Promise.resolve();
 }
 $('scannerClose').addEventListener('click', closeScanner);
 $('scanHero').addEventListener('click', startScanner);
@@ -1374,6 +1408,7 @@ async function registrarMovimiento(){
   const delta = tipo === 'ENTRADA' ? cant : -cant;
   const codigo = art.codigo;
   const nombre = art.nombre || '';
+  const showroom = destinoShowroom();
 
   btn.disabled = true;
   procesoCriticoEnEjecucion = true;
@@ -1385,15 +1420,12 @@ async function registrarMovimiento(){
     const conectado = await verificarConexionFirebase(5000).catch(() => false);
     if (!conectado){ toast('Sin conexión a Firebase. Verificá tu internet.', 'err'); return; }
 
-    // Baseline: si el artículo nunca tuvo movimientos en esta app, el contador
-    // arranca desde el stock histórico de la planilla en vez de cero.
-    const baseline = (art.stockSheet != null) ? art.stockSheet : 0;
-    let previo;   // valor que había antes (null = primera vez)
-
+    // El contador es independiente de la planilla: arranca en 0 y solo acumula
+    // los movimientos registrados acá.
     showBlock('Actualizando stock…');
     stockRef = db.ref(P.stock + '/' + codigo);
     const tx = await conTimeout(
-      stockRef.transaction(v => { previo = v; return (v == null ? baseline : v) + delta; }),
+      stockRef.transaction(v => (v == null ? 0 : v) + delta),
       15000,
       'Timeout: la actualización del stock tardó demasiado.'
     );
@@ -1401,30 +1433,27 @@ async function registrarMovimiento(){
     aplicado = true;
     stockFinal = tx.snapshot.val();
 
-    // Histórico + metadatos, en una única escritura atómica.
+    // Histórico del movimiento.
     showBlock('Registrando movimiento…');
     const movKey = db.ref(P.movimientos).push().key;
     const ahora = Date.now();
-    const updates = {};
-    updates[P.movimientos + '/' + movKey] = {
+    const registro = {
       Codigo: codigo,
       Nombre: nombre,
       Cantidad: cant,
       Tipo: tipo,
+      // true = salón de ventas · false = cualquier otro destino
+      DestinoShowroom: showroom,
       FechaHora: firebase.database.ServerValue.TIMESTAMP,
       FechaHoraTxt: fmtFechaGMT3(ahora),
       Usuario: (auth.currentUser && auth.currentUser.email) || ''
     };
-    updates[P.stockMeta + '/' + codigo + '/ultimoMov'] = movKey;
-    updates[P.stockMeta + '/' + codigo + '/ultimaFecha'] = firebase.database.ServerValue.TIMESTAMP;
-    if (previo == null){
-      // Solo la primera vez: deja registro de desde dónde arrancó el contador.
-      updates[P.stockMeta + '/' + codigo + '/base'] = baseline;
-      updates[P.stockMeta + '/' + codigo + '/baseFuente'] = (art.stockSheet != null) ? 'sheets' : 'cero';
-      updates[P.stockMeta + '/' + codigo + '/baseTs'] = firebase.database.ServerValue.TIMESTAMP;
-    }
 
-    await conTimeout(db.ref().update(updates), 15000, 'Timeout: la escritura tardó demasiado.');
+    await conTimeout(
+      db.ref(P.movimientos + '/' + movKey).set(registro),
+      15000,
+      'Timeout: la escritura tardó demasiado.'
+    );
 
     // Verificación posterior: sin esto, un fallo silencioso pasa por éxito.
     const check = await conTimeout(
@@ -1437,7 +1466,7 @@ async function registrarMovimiento(){
     }
 
     state.ultimoStock = stockFinal;
-    mostrarSuccess(art, cant, tipo, stockFinal);
+    mostrarSuccess(art, cant, tipo, stockFinal, showroom);
   } catch (err){
     console.error('Error registrando movimiento:', err);
     // Si el contador ya se movió pero el histórico falló, se revierte para no
@@ -1460,20 +1489,20 @@ async function registrarMovimiento(){
   }
 }
 
-function mostrarSuccess(art, cant, tipo, stockFinal){
+function mostrarSuccess(art, cant, tipo, stockFinal, showroom){
   const entrada = tipo === 'ENTRADA';
   const scr = $('success');
   scr.className = 'success-screen active ' + (entrada ? 'in' : 'out');
   $('successStamp').className = 'stamp ' + (entrada ? 'in' : 'out');
   $('successTitle').textContent = entrada ? '¡Entrada registrada!' : '¡Salida registrada!';
-  $('successNm').textContent = `${cant} ${unidades(cant)} · ${art.nombre || '(sin nombre)'}`;
+  const destino = showroom ? 'Showroom' : 'Otro destino';
+  $('successNm').textContent = `${cant} ${unidades(cant)} · ${art.nombre || '(sin nombre)'} · ${destino}`;
   $('successStock').innerHTML = `Stock de #${escapeHtml(art.codigo)}: <b>${stockFinal} ${unidades(stockFinal)}</b>`;
 }
 
 $('againBtn').addEventListener('click', () => {
   $('success').classList.remove('active');
   limpiarArticulo();
-  startScanner();
 });
 $('successHome').addEventListener('click', () => {
   $('success').classList.remove('active');
@@ -1531,6 +1560,9 @@ function renderHistorial(){
     const cls = entrada ? 'in' : 'out';
     const hora = (fmtFechaGMT3(m.FechaHora).split(' ')[1]) || '';
     const usuario = m.Usuario ? ' · ' + escapeHtml(String(m.Usuario).split('@')[0]) : '';
+    // Los movimientos viejos no tienen el campo: se omite en vez de asumir un destino.
+    const destino = m.DestinoShowroom == null ? ''
+      : ' · ' + (m.DestinoShowroom ? 'showroom' : 'otro');
     html += `<div class="mv">
       <span class="mv-ico ${cls}">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -1539,7 +1571,7 @@ function renderHistorial(){
       </span>
       <span class="mv-tx">
         <span class="mv-nm">${escapeHtml(m.Nombre || '(sin nombre)')}</span>
-        <span class="mv-meta">#${escapeHtml(m.Codigo || '—')} · ${escapeHtml(hora)}${usuario}</span>
+        <span class="mv-meta">#${escapeHtml(m.Codigo || '—')} · ${escapeHtml(hora)}${usuario}${destino}</span>
       </span>
       <span class="mv-qty ${cls}">${entrada ? '+' : '−'}${Number(m.Cantidad) || 0}</span>
     </div>`;

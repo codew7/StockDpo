@@ -1,39 +1,32 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
+
     "inventario": {
       "movimientos": {
         ".read": "auth != null",
         ".indexOn": ["Codigo", "FechaHora"],
         "$mov": {
           ".write": "auth != null && !data.exists()",
-          ".validate": "newData.hasChildren(['Codigo','Nombre','Cantidad','Tipo','FechaHora'])",
-          "Codigo":       { ".validate": "newData.isString() && newData.val().length > 0" },
-          "Nombre":       { ".validate": "newData.isString()" },
-          "Cantidad":     { ".validate": "newData.isNumber() && newData.val() > 0" },
-          "Tipo":         { ".validate": "newData.val() === 'ENTRADA' || newData.val() === 'SALIDA'" },
-          "FechaHora":    { ".validate": "newData.val() === now" },
-          "FechaHoraTxt": { ".validate": "newData.isString()" },
-          "Usuario":      { ".validate": "newData.isString()" },
-          "$otro":        { ".validate": false }
+          ".validate": "newData.hasChildren(['Codigo','Nombre','Cantidad','Tipo','DestinoShowroom','FechaHora'])",
+          "Codigo":          { ".validate": "newData.isString() && newData.val().length > 0" },
+          "Nombre":          { ".validate": "newData.isString()" },
+          "Cantidad":        { ".validate": "newData.isNumber() && newData.val() > 0" },
+          "Tipo":            { ".validate": "newData.val() === 'ENTRADA' || newData.val() === 'SALIDA'" },
+          "DestinoShowroom": { ".validate": "newData.isBoolean()" },
+          "FechaHora":       { ".validate": "newData.val() === now" },
+          "FechaHoraTxt":    { ".validate": "newData.isString()" },
+          "Usuario":         { ".validate": "newData.isString()" },
+          "$otro":           { ".validate": false }
         }
       },
+
       "stock": {
         ".read": "auth != null",
         "$codigo": {
           ".write": "auth != null",
           ".validate": "newData.isNumber()"
-        }
-      },
-      "stockMeta": {
-        ".read": "auth != null",
-        "$codigo": {
-          ".write": "auth != null",
-          "base":        { ".validate": "newData.isNumber()" },
-          "baseFuente":  { ".validate": "newData.isString()" },
-          "baseTs":      { ".validate": "newData.val() === now" },
-          "ultimoMov":   { ".validate": "newData.isString()" },
-          "ultimaFecha": { ".validate": "newData.val() === now" },
-          "$otro":       { ".validate": false }
         }
       }
     }
