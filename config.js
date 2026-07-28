@@ -2,10 +2,6 @@
 const firebaseConfig = {
     apiKey: "AIzaSyAkd3NCHTZHx7nzd7nNNAig2NNV-GCPc3c",
     authDomain: "stockdpo.firebaseapp.com",
-    // ⚠️ TODO: verificar en Firebase Console → Realtime Database → la URL que figura
-    // arriba de los datos. Si la base está en otra región (ej. europe-west1), la URL
-    // tiene la forma https://stockdpo-default-rtdb.<region>.firebasedatabase.app
-    databaseURL: "https://stockdpo-default-rtdb.firebaseio.com",
     projectId: "stockdpo",
     storageBucket: "stockdpo.firebasestorage.app",
     messagingSenderId: "807489064229",

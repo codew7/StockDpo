@@ -644,26 +644,23 @@ input[type=number]{-moz-appearance:textfield}
 const DB_PREFIX = 'inventario';
 
 // ---- Catálogo de artículos (Google Sheets, solo lectura desde el cliente) ----
-// Índices de columna dentro del rango configurado (0 = primera columna del rango).
-// Los que tienen valor están confirmados contra articulos.html; los `null` son TODO.
+// Índices de columna dentro del rango 'Lista!A2:Z' (0 = columna A). Mismo mapeo
+// que usa pedidosv2.html en cargarSheets().
 const CATALOGO = {
   SHEET_ID: (typeof GOOGLE_SHEETS_CONFIG !== 'undefined' ? GOOGLE_SHEETS_CONFIG.SPREADSHEET_ID : ''),
   API_KEY:  (typeof GOOGLE_SHEETS_CONFIG !== 'undefined' ? GOOGLE_SHEETS_CONFIG.API_KEY : ''),
   RANGO:    (typeof GOOGLE_SHEETS_CONFIG !== 'undefined' ? GOOGLE_SHEETS_CONFIG.RANGO : ''),  // 'Lista!A2:Z' — arranca en A2, sin encabezado
   COL: {
-    CODIGO:    2,    // col. C — confirmado (articulos.html: fetchStockActual)
-    STOCK:     10,   // col. K — confirmado — se usa como baseline del contador de Firebase
-    ULT_ENT:   12,   // col. M — confirmado — solo informativo
-    NOMBRE:    null, // TODO: índice de la columna Nombre
-    BARCODE:   null, // TODO: índice de Código de barras (CSV si hay varios, como CodigoBarras)
-    FOTO:      null, // TODO: índice de la URL de la foto
-    CATEGORIA: null  // TODO: índice de Categoría
+    IMAGEN:  1,    // col. B — CSV de links: el 1º es la foto, el 4º la alternativa
+    CODIGO:  2,    // col. C — código interno del artículo
+    NOMBRE:  3,    // col. D
+    VALOR_U: 6,    // col. G — precio unitario
+    VALOR_C: 7,    // col. H — precio por bulto
+    STOCK:   10,   // col. K — baseline del contador de Firebase
+    BARCODE: 11,   // col. L — CSV de códigos de barras
+    ULT_ENT: 12    // col. M — última entrada (informativo)
   }
 };
-
-// Mientras falten los índices de arriba, el catálogo se completa con el nodo
-// `articulos` de Firebase, que sí tiene Nombre/CodigoBarras/Foto/Categoria.
-const USAR_FALLBACK_FIREBASE = true;
 
 // Cantidad de movimientos que se traen para el historial y las métricas del home.
 const HIST_LIMIT = 200;
@@ -674,7 +671,14 @@ const HIST_LIMIT = 200;
 let auth = null, db = null, firebaseListo = false;
 try {
   if (typeof firebaseConfig === 'undefined') throw new Error('No se encontró firebaseConfig (config.js).');
-  if (!firebaseConfig.databaseURL) throw new Error('Falta databaseURL en firebaseConfig (config.js).');
+  // Realtime Database necesita databaseURL. Si config.js no lo trae, se deriva del
+  // projectId (forma por defecto de us-central1). Si la base está en otra región
+  // —europe-west1, asia-southeast1— hay que declararlo explícitamente en config.js:
+  // https://<projectId>-default-rtdb.<region>.firebasedatabase.app
+  if (!firebaseConfig.databaseURL && firebaseConfig.projectId){
+    firebaseConfig.databaseURL = `https://${firebaseConfig.projectId}-default-rtdb.firebaseio.com`;
+    console.warn('config.js no define databaseURL; usando el valor derivado:', firebaseConfig.databaseURL);
+  }
   firebase.initializeApp(firebaseConfig);
   auth = firebase.auth();
   db = firebase.database();
@@ -809,12 +813,12 @@ let stockCargado = false;
 let movimientos = [];     // últimos HIST_LIMIT, más nuevo primero
 
 // ════════════════════════════════════════════════════════════
-//  Catálogo — Google Sheets + fallback al nodo `articulos`
+//  Catálogo — Google Sheets (misma lectura que pedidosv2.html)
 // ════════════════════════════════════════════════════════════
 const CATALOGO_URL = () =>
   `https://sheets.googleapis.com/v4/spreadsheets/${CATALOGO.SHEET_ID}/values/${encodeURIComponent(CATALOGO.RANGO)}?key=${CATALOGO.API_KEY}`;
 
-const CACHE_KEY = 'inv.catalogo.v1';
+const CACHE_KEY = 'inv.catalogo.v2';
 const CACHE_TTL = 10 * 60 * 1000;   // 10 minutos
 
 function celda(row, idx){
@@ -822,8 +826,35 @@ function celda(row, idx){
   const v = row[idx];
   return v == null ? '' : String(v).trim();
 }
-function splitBarcodes(v){
+function splitCsv(v){
   return String(v || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+// Normaliza para comparar: el Sheet trae espacios sueltos y los alfanuméricos
+// (CODE_39 / CODABAR) pueden venir en distinto case que el catálogo.
+function normBarcode(v){ return String(v || '').trim().toUpperCase(); }
+
+// Los precios llegan como texto ya formateado por la hoja, y el formato puede ser
+// argentino ("$ 3.500,50") o inglés ("$ 3,500.50"). Se toma como separador decimal
+// el último de los dos que aparezca; el otro se descarta como separador de miles.
+function precioSheet(v){
+  if (v == null || v === '') return null;
+  let s = String(v).replace(/[^\d.,-]/g, '');
+  if (!s) return null;
+  const ultimaComa = s.lastIndexOf(',');
+  const ultimoPunto = s.lastIndexOf('.');
+  if (ultimaComa > -1 && ultimoPunto > -1){
+    s = ultimaComa > ultimoPunto
+      ? s.replace(/\./g, '').replace(',', '.')   // 3.500,50
+      : s.replace(/,/g, '');                     // 3,500.50
+  } else if (ultimaComa > -1){
+    // Coma sola: decimal solo si separa 1 o 2 dígitos finales (3,5 · 3,50); si no, miles.
+    s = /^-?\d+,\d{1,2}$/.test(s) ? s.replace(',', '.') : s.replace(/,/g, '');
+  } else if (ultimoPunto > -1 && /^-?\d{1,3}(\.\d{3})+$/.test(s)){
+    // Punto solo agrupando de a tres (40.000 · 1.234.567): separador de miles.
+    s = s.replace(/\./g, '');
+  }
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
 }
 
 async function fetchCatalogoSheets(){
@@ -838,51 +869,25 @@ async function fetchCatalogoSheets(){
   return (values || []).map(row => {
     const codigo = celda(row, C.CODIGO);
     if (!codigo) return null;
-    const stockRaw = C.STOCK == null ? '' : row[C.STOCK];
+    // La columna de imagen trae varios links separados por coma; es posicional:
+    // el 1º es la foto principal y el 4º la alternativa (igual que pedidosv2.html).
+    const imgs = String(row[C.IMAGEN] || '').split(',').map(u => u.trim());
+    const stockRaw = celda(row, C.STOCK);
     return {
       codigo,
-      nombre:    celda(row, C.NOMBRE),
-      barcodes:  splitBarcodes(celda(row, C.BARCODE)),
-      foto:      celda(row, C.FOTO),
-      categoria: celda(row, C.CATEGORIA),
-      stockSheet: stockRaw === '' || stockRaw == null ? null : (Number(stockRaw) || 0),
+      nombre:     celda(row, C.NOMBRE),
+      barcodes:   splitCsv(celda(row, C.BARCODE)),
+      foto:       imgs[0] || '',
+      fotoAlt:    imgs[3] || '',
+      valorU:     precioSheet(row[C.VALOR_U]),
+      valorC:     precioSheet(row[C.VALOR_C]),
+      stockSheet: stockRaw === '' ? null : (parseInt(stockRaw, 10) || 0),
       ultEntrada: celda(row, C.ULT_ENT)
     };
   }).filter(Boolean);
 }
 
-function fetchArticulosFirebase(){
-  if (!firebaseListo) return Promise.resolve({});
-  return new Promise(resolve => {
-    db.ref('articulos').once('value',
-      snap => resolve(snap.val() || {}),
-      err => { console.error('No se pudo leer el nodo `articulos`:', err); resolve({}); }
-    );
-  });
-}
-
-// Fusiona ambas fuentes: Sheets manda donde tiene columna configurada,
-// Firebase completa el resto (y aporta artículos que no estén en la hoja).
-function mergeCatalogo(desdeSheets, desdeFirebase){
-  const map = {};
-  desdeSheets.forEach(a => { map[a.codigo] = { ...a }; });
-
-  Object.values(desdeFirebase || {}).forEach(rec => {
-    if (!rec) return;
-    const codigo = String(rec.Codigo || '').trim();
-    if (!codigo) return;
-    const base = map[codigo] || { codigo, barcodes: [], stockSheet: null, ultEntrada: '' };
-    map[codigo] = {
-      ...base,
-      nombre:    base.nombre    || String(rec.Nombre || '').trim(),
-      foto:      base.foto      || String(rec.Foto || rec.Img || '').trim(),
-      categoria: base.categoria || String(rec.Categoria || '').trim(),
-      barcodes:  (base.barcodes && base.barcodes.length) ? base.barcodes : splitBarcodes(rec.CodigoBarras)
-    };
-  });
-
-  return Object.values(map);
-}
+function fotoDe(a){ return (a && (a.foto || a.fotoAlt)) || ''; }
 
 function indexarCatalogo(lista){
   catalogo = lista.sort((a, b) => (a.nombre || a.codigo).localeCompare(b.nombre || b.codigo, 'es'));
@@ -890,9 +895,12 @@ function indexarCatalogo(lista){
   porBarcode = {};
   catalogo.forEach(a => {
     porCodigo[a.codigo] = a;
+    // Un mismo código de barras puede estar en varios artículos: se acumulan todos.
     a.barcodes.forEach(bc => {
-      if (!porBarcode[bc]) porBarcode[bc] = [];
-      porBarcode[bc].push(a);
+      const k = normBarcode(bc);
+      if (!k) return;
+      if (!porBarcode[k]) porBarcode[k] = [];
+      if (!porBarcode[k].includes(a)) porBarcode[k].push(a);
     });
   });
 }
@@ -920,12 +928,9 @@ async function cargarCatalogo(opts){
     indexarCatalogo(cache.items);
     if (Date.now() - cache.ts < CACHE_TTL) return catalogo;
   }
-  // 2) Refresco desde las fuentes reales.
-  const [sheets, fb] = await Promise.all([
-    fetchCatalogoSheets().catch(err => { console.error('Catálogo (Sheets):', err); return []; }),
-    USAR_FALLBACK_FIREBASE ? fetchArticulosFirebase() : Promise.resolve({})
-  ]);
-  const lista = mergeCatalogo(sheets, fb);
+  // 2) Refresco desde Google Sheets.
+  const lista = await fetchCatalogoSheets()
+    .catch(err => { console.error('Catálogo (Sheets):', err); return []; });
   if (!lista.length){
     if (catalogo.length){ toast('No se pudo actualizar el catálogo; usando la copia local', 'err'); return catalogo; }
     toast('No se pudo cargar el catálogo de artículos', 'err');
@@ -944,7 +949,7 @@ function buscarCatalogo(q, limite){
   for (const a of catalogo){
     const hit = (a.nombre && a.nombre.toLowerCase().includes(t))
       || a.codigo.toLowerCase().includes(t)
-      || a.barcodes.some(bc => bc.includes(t));
+      || a.barcodes.some(bc => bc.toLowerCase().includes(t));
     if (hit){
       out.push(a);
       if (out.length >= max) break;
@@ -1056,11 +1061,18 @@ $('clearArt').addEventListener('click', () => { limpiarArticulo(); startScanner(
 function seleccionarArticulo(art){
   state.art = art;
   $('artNm').textContent = art.nombre || '(sin nombre)';
-  $('artCd').textContent = '#' + art.codigo + (art.categoria ? ' · ' + art.categoria : '');
+  const precio = art.valorU != null ? ' · $' + art.valorU.toLocaleString('es-AR') : '';
+  $('artCd').textContent = '#' + art.codigo + precio;
   $('artBc').textContent = art.barcodes.length ? art.barcodes.join(' · ') : '';
   const img = $('artImg');
-  img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER_IMG; };
-  img.src = art.foto || PLACEHOLDER_IMG;
+  // Si el link principal falla, se intenta la imagen alternativa (4º link de la
+  // columna) antes de caer al placeholder.
+  const alt = art.fotoAlt || '';
+  img.onerror = () => {
+    if (alt && img.src !== alt){ img.src = alt; return; }
+    img.onerror = null; img.src = PLACEHOLDER_IMG;
+  };
+  img.src = fotoDe(art) || PLACEHOLDER_IMG;
   $('qtyInput').value = '1';
   $('artCard').classList.add('show');
   $('scanCard').style.display = 'none';
@@ -1121,21 +1133,31 @@ function evaluarCantidad(){
 }
 
 // ---- Resolución de un código escaneado o tipeado ----
+// Mismo criterio que pedidosv2.html: primero código de barras, y si no hay
+// coincidencia, código interno del artículo. Nunca se queda con el primero
+// cuando hay varios: un código de barras puede estar repetido en varios
+// artículos y quien registra tiene que poder elegir.
+function buscarCandidatos(texto){
+  const k = normBarcode(texto);
+  if (!k) return [];
+  const porBc = porBarcode[k] || [];
+  if (porBc.length) return porBc;
+  const porCod = catalogo.filter(a => normBarcode(a.codigo) === k);
+  if (porCod.length) return porCod;
+  // Último intento: código interno con ceros a la izquierda (10023 vs 010023)
+  const sinCeros = k.replace(/^0+/, '');
+  return sinCeros && porCodigo[sinCeros] ? [porCodigo[sinCeros]] : [];
+}
+
 function resolverCodigo(code){
   const c = String(code || '').trim();
   if (!c){ toast('Ingresá un código', 'err'); return; }
 
-  const porBc = porBarcode[c] || [];
-  if (porBc.length === 1){ seleccionarArticulo(porBc[0]); return; }
-  if (porBc.length > 1){ abrirSheetDesambiguacion(porBc, c); return; }
+  const candidatos = buscarCandidatos(c);
+  if (candidatos.length === 1){ seleccionarArticulo(candidatos[0]); return; }
+  if (candidatos.length > 1){ abrirSheetDesambiguacion(candidatos, c); return; }
 
-  if (porCodigo[c]){ seleccionarArticulo(porCodigo[c]); return; }
-
-  // Último intento: código interno con ceros a la izquierda (10023 vs 010023)
-  const sinCeros = c.replace(/^0+/, '');
-  if (sinCeros && porCodigo[sinCeros]){ seleccionarArticulo(porCodigo[sinCeros]); return; }
-
-  toast('No encontré ningún artículo con ese código', 'err');
+  toast('Código no encontrado en el catálogo', 'err');
   abrirSheetBusqueda(c);
 }
 
@@ -1151,7 +1173,7 @@ let sheetItems = [];
 function itemHtml(a, i){
   const { valor } = stockDe(a.codigo);
   return `<button type="button" class="sheet-item" data-i="${i}">
-    <img class="sheet-thumb" src="${escapeHtml(a.foto || PLACEHOLDER_IMG)}" alt="" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
+    <img class="sheet-thumb" src="${escapeHtml(fotoDe(a) || PLACEHOLDER_IMG)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
     <span class="sheet-tx">
       <span class="nm">${escapeHtml(a.nombre || '(sin nombre)')}</span>
       <span class="cd">#${escapeHtml(a.codigo)}${a.barcodes.length ? ' · ' + escapeHtml(a.barcodes[0]) : ''}</span>
@@ -1538,7 +1560,7 @@ function renderStock(){
     const { valor } = stockDe(a.codigo);
     const cls = valor > 0 ? 'pos' : (valor < 0 ? 'neg' : 'zero');
     return `<div class="st">
-      <img class="st-thumb" src="${escapeHtml(a.foto || PLACEHOLDER_IMG)}" alt="" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
+      <img class="st-thumb" src="${escapeHtml(fotoDe(a) || PLACEHOLDER_IMG)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
       <span class="st-tx">
         <span class="st-nm">${escapeHtml(a.nombre || '(sin nombre)')}</span>
         <span class="st-cd">#${escapeHtml(a.codigo)}</span>
@@ -1660,14 +1682,9 @@ async function init(){
   showBlock('Cargando catálogo…');
   try {
     await cargarCatalogo();
+    console.log('Catálogo cargado desde Google Sheets:', catalogo.length, 'artículos');
   } finally {
     hideBlock();
-  }
-  // Aviso claro si el mapeo de columnas todavía está incompleto.
-  const faltantes = Object.entries(CATALOGO.COL).filter(([, v]) => v == null).map(([k]) => k);
-  if (faltantes.length){
-    console.warn('Catálogo: columnas sin mapear en CATALOGO.COL →', faltantes.join(', '),
-      '· Mientras tanto esos campos se completan desde el nodo `articulos` de Firebase.');
   }
 }
 </script>
