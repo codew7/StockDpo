@@ -9,7 +9,7 @@
    Al cambiar el HTML, subí CACHE_VERSION para invalidar la caché vieja.
    ============================================================ */
 
-const CACHE_VERSION = 'inv-v1';
+const CACHE_VERSION = 'inv-v2';
 const CACHE_SHELL   = CACHE_VERSION + '-shell';
 const CACHE_CDN     = CACHE_VERSION + '-cdn';
 const CACHE_DATA    = CACHE_VERSION + '-data';

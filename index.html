@@ -425,7 +425,7 @@ input[type=number]{-moz-appearance:textfield}
     <button type="button" class="mark" id="brandHome" title="Volver al inicio">
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
     </button>
-    <span class="tt"><b>Inventario</b><span id="brandSub">Inicio</span></span>
+    <span class="tt"><b>Deposito</b><span id="brandSub">Inventario</span></span>
   </div>
   <div class="topbar-right">
     <span class="conn"><span class="dot" id="connDot"></span><span id="connTxt">online</span></span>
@@ -550,13 +550,9 @@ input[type=number]{-moz-appearance:textfield}
           <input type="number" id="qtyInput" value="1" min="1" step="1" inputmode="numeric">
           <button class="qty-btn" id="qtyPlus" aria-label="Sumar una unidad">+</button>
         </div>
-        <div class="qty-fast">
-          <button type="button" data-q="1">1</button>
-          <button type="button" data-q="5">5</button>
-          <button type="button" data-q="10">10</button>
-          <button type="button" data-q="12">12</button>
-          <button type="button" data-q="24">24</button>
-        </div>
+        <!-- Se rellena en runtime con las cantidades de los últimos movimientos
+             (ver renderQtyFast). -->
+        <div class="qty-fast" id="qtyFast"></div>
 
         <div class="warn" id="qtyWarn">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -774,7 +770,10 @@ window.addEventListener('beforeunload', e => {
 const $ = id => document.getElementById(id);
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect fill='%23f1f3f9' width='64' height='64'/%3E%3Ctext x='32' y='35' text-anchor='middle' fill='%23a9b0c1' font-family='monospace' font-size='8'%3Esin foto%3C/text%3E%3C/svg%3E";
+// Las comillas simples van percent-encodeadas (%27): este data URI se interpola
+// dentro de un onerror="…this.src='…'" y una comilla literal cortaría el string
+// del JS inline ("Uncaught SyntaxError: Unexpected identifier 'http'").
+const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect fill=%27%23f1f3f9%27 width=%2764%27 height=%2764%27/%3E%3Ctext x=%2732%27 y=%2735%27 text-anchor=%27middle%27 fill=%27%23a9b0c1%27 font-family=%27monospace%27 font-size=%278%27%3Esin foto%3C/text%3E%3C/svg%3E";
 
 let toastTimer = null;
 function toast(msg, type){
@@ -906,6 +905,17 @@ async function fetchCatalogoSheets(){
 }
 
 function fotoDe(a){ return (a && (a.foto || a.fotoAlt)) || ''; }
+function fotoAltDe(a){ return (a && a.fotoAlt) || ''; }
+
+// Fallback de imagen, en cadena: 1er link → 4º link (data-alt) → placeholder.
+// El primer link puede existir pero no cargar (404, permisos de Drive, link que
+// no apunta a una imagen); recién ahí se intenta la alternativa.
+function imgFallback(img){
+  const alt = img.dataset.alt || '';
+  if (alt && img.getAttribute('src') !== alt){ img.src = alt; return; }
+  img.onerror = null;
+  img.src = PLACEHOLDER_IMG;
+}
 
 function indexarCatalogo(lista){
   catalogo = lista.sort((a, b) => (a.nombre || a.codigo).localeCompare(b.nombre || b.codigo, 'es'));
@@ -1079,17 +1089,11 @@ $('clearArt').addEventListener('click', limpiarArticulo);
 function seleccionarArticulo(art){
   state.art = art;
   $('artNm').textContent = art.nombre || '(sin nombre)';
-  const precio = art.valorU != null ? ' · $' + art.valorU.toLocaleString('es-AR') : '';
-  $('artCd').textContent = '#' + art.codigo + precio;
+  $('artCd').textContent = '#' + art.codigo;
   $('artBc').textContent = art.barcodes.length ? art.barcodes.join(' · ') : '';
   const img = $('artImg');
-  // Si el link principal falla, se intenta la imagen alternativa (4º link de la
-  // columna) antes de caer al placeholder.
-  const alt = art.fotoAlt || '';
-  img.onerror = () => {
-    if (alt && img.src !== alt){ img.src = alt; return; }
-    img.onerror = null; img.src = PLACEHOLDER_IMG;
-  };
+  img.dataset.alt = fotoAltDe(art);
+  img.onerror = () => imgFallback(img);
   img.src = fotoDe(art) || PLACEHOLDER_IMG;
   $('qtyInput').value = '1';
   $('artCard').classList.add('show');
@@ -1138,9 +1142,43 @@ function setCantidad(n){
 $('qtyMinus').addEventListener('click', () => setCantidad(cantidadActual() - 1));
 $('qtyPlus').addEventListener('click', () => setCantidad(cantidadActual() + 1));
 $('qtyInput').addEventListener('input', evaluarCantidad);
-document.querySelectorAll('.qty-fast button').forEach(b => {
-  b.addEventListener('click', () => setCantidad(parseInt(b.dataset.q, 10)));
+// Delegado: los botones se recrean cada vez que llega el historial.
+$('qtyFast').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) setCantidad(parseInt(b.dataset.q, 10));
 });
+
+// ---- Accesos rápidos de cantidad ----
+// Las cantidades que más se van a repetir son las que ya se usaron recién, así
+// que salen de los últimos movimientos registrados: se recorre el historial del
+// más nuevo al más viejo, se descartan repetidos, se cortan los primeros
+// QTY_FAST_N y recién ahí se ordenan de menor a mayor para mostrarlos.
+// Con la base vacía (o con menos de QTY_FAST_N cantidades distintas) se completa
+// con los valores de siempre para no dejar la fila a medias.
+const QTY_FAST_N = 5;
+const QTY_FAST_FALLBACK = [1, 5, 10, 12, 24];
+
+function cantidadesRapidas(){
+  const vistas = [];
+  for (const m of movimientos){          // ya viene ordenado, más nuevo primero
+    const n = Number(m.Cantidad);
+    if (!Number.isFinite(n) || n <= 0) continue;
+    if (!vistas.includes(n)) vistas.push(n);
+    if (vistas.length === QTY_FAST_N) break;
+  }
+  for (const n of QTY_FAST_FALLBACK){
+    if (vistas.length === QTY_FAST_N) break;
+    if (!vistas.includes(n)) vistas.push(n);
+  }
+  return vistas.sort((a, b) => a - b);
+}
+
+function renderQtyFast(){
+  $('qtyFast').innerHTML = cantidadesRapidas()
+    .map(n => `<button type="button" data-q="${n}">${n}</button>`)
+    .join('');
+}
+renderQtyFast();
 
 // Aviso no bloqueante: una salida mayor al stock se permite (el stock puede
 // quedar negativo y eso es información útil, no un error a esconder).
@@ -1203,7 +1241,7 @@ let sheetItems = [];
 function itemHtml(a, i){
   const { valor } = stockDe(a.codigo);
   return `<button type="button" class="sheet-item" data-i="${i}">
-    <img class="sheet-thumb" src="${escapeHtml(fotoDe(a) || PLACEHOLDER_IMG)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
+    <img class="sheet-thumb" src="${escapeHtml(fotoDe(a) || PLACEHOLDER_IMG)}" data-alt="${escapeHtml(fotoAltDe(a))}" alt="" loading="lazy" onerror="imgFallback(this)">
     <span class="sheet-tx">
       <span class="nm">${escapeHtml(a.nombre || '(sin nombre)')}</span>
       <span class="cd">#${escapeHtml(a.codigo)}${a.barcodes.length ? ' · ' + escapeHtml(a.barcodes[0]) : ''}</span>
@@ -1527,6 +1565,7 @@ function suscribirMovimientos(){
       .map(([key, m]) => ({ key, ...m }))
       .sort((a, b) => (Number(b.FechaHora) || 0) - (Number(a.FechaHora) || 0));
     renderStats();
+    renderQtyFast();   // los accesos rápidos salen de los últimos movimientos
     if ($('historial').classList.contains('active')) renderHistorial();
   }, err => console.error('No se pudo leer el historial:', err));
 }
@@ -1600,7 +1639,7 @@ function renderStock(){
     const { valor } = stockDe(a.codigo);
     const cls = valor > 0 ? 'pos' : (valor < 0 ? 'neg' : 'zero');
     return `<div class="st">
-      <img class="st-thumb" src="${escapeHtml(fotoDe(a) || PLACEHOLDER_IMG)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}'">
+      <img class="st-thumb" src="${escapeHtml(fotoDe(a) || PLACEHOLDER_IMG)}" data-alt="${escapeHtml(fotoAltDe(a))}" alt="" loading="lazy" onerror="imgFallback(this)">
       <span class="st-tx">
         <span class="st-nm">${escapeHtml(a.nombre || '(sin nombre)')}</span>
         <span class="st-cd">#${escapeHtml(a.codigo)}</span>
